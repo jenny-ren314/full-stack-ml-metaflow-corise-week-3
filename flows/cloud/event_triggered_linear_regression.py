@@ -8,10 +8,10 @@ DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 @trigger(events=["s3"])
 @conda_base(
     libraries={
-        "pandas": "1.4.2",
-        "pyarrow": "11.0.0",
-        "numpy": "1.21.2",
-        "scikit-learn": "1.1.2",
+        "pandas": "2.1.2",
+        "pyarrow": "13.0.0",
+        # "numpy": "1.21.2",
+        "scikit-learn": "1.3.2",
     }
 )
 class TaxiFarePrediction(FlowSpec):
@@ -22,6 +22,16 @@ class TaxiFarePrediction(FlowSpec):
         # Try to complete tasks 2 and 3 with this function doing nothing like it currently is.
         # Understand what is happening.
         # Revisit task 1 and think about what might go in this function.
+        # basically to get rid of bad data so that X and y don't have any nulls
+        obviously_bad_data_filters = [
+        df.fare_amount > 0,  # fare_amount in US Dollars
+        df.trip_distance <= 100,  # trip_distance in miles
+        df.trip_distance > 0,
+        df.passenger_count > 0,
+        ]
+
+        for f in obviously_bad_data_filters:
+            df = df[f]
 
         return df
 
@@ -36,7 +46,10 @@ class TaxiFarePrediction(FlowSpec):
         # This is a simple/naive way to do this, and is meant to keep this example simple, to focus learning on deploying Metaflow flows.
         # In practice, you want split time series data in more sophisticated ways and run backtests.
         self.X = self.df["trip_distance"].values.reshape(-1, 1)
+        # self.X = self.df["trip_distance"].values
         self.y = self.df["total_amount"].values
+        print('checking --------------------')
+        print(self.X.shape, self.y.shape)
         self.next(self.linear_model)
 
     @step
@@ -45,8 +58,10 @@ class TaxiFarePrediction(FlowSpec):
         from sklearn.linear_model import LinearRegression
 
         # TODO: Play around with the model if you are feeling it.
+        print('checking linear model --------------------')
         self.model = LinearRegression()
-
+        self.model.fit(self.X, self.y)
+        print('done linear model --------------------')
         self.next(self.validate)
 
     def gather_sibling_flow_run_results(self):
